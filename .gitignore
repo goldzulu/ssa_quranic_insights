@@ -28,3 +28,5 @@ The_Quran_Dataset.csv
 
 # macOS
 .DS_Store 
+
+.Dockerfile
