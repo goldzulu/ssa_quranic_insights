@@ -1,0 +1,30 @@
+# Environment variables
+.env
+
+# Streamlit Secrets
+.streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Embedding cache files
+*.npz
+
+# Dataset (can be downloaded automatically)
+The_Quran_Dataset.csv
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store 
