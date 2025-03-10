@@ -21,6 +21,14 @@ from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
 # Load environment variables for local development
 load_dotenv()
 
+# Get app version from VERSION file
+def get_app_version():
+    try:
+        with open("VERSION", "r") as version_file:
+            return version_file.read().strip()
+    except FileNotFoundError:
+        return "Unknown"
+
 # Get OpenAI API key from Streamlit secrets or environment variables
 def get_openai_api_key():
     # First try to get from Streamlit secrets
@@ -588,6 +596,10 @@ for message in st.session_state.messages:
             st.markdown(message["content"], unsafe_allow_html=True)
         else:
             st.markdown(message["content"])
+
+# Display version number in the footer
+version = get_app_version()
+st.sidebar.markdown(f"<div style='position: fixed; bottom: 10px; left: 20px; color: #888;'>Version {version}</div>", unsafe_allow_html=True)
 
 # Initialize the agent (only once)
 if "agent" not in st.session_state:

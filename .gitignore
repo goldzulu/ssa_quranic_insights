@@ -20,9 +20,6 @@ build/
 # Embedding cache files
 *.npz
 
-# Dataset (can be downloaded automatically)
-./The_Quran_Dataset.csv
-
 # VS Code
 .vscode/
 
