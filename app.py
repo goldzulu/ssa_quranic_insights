@@ -56,6 +56,7 @@ def load_quran_dataset():
 
 # Format the ayah reference for display
 def format_ayah_reference(ayah):
+    """Format an ayah with enhanced styling for Arabic text"""
     # Safely access DataFrame columns with fallbacks for missing columns
     ayah_ar = ayah.get('ayah_ar', ayah.get('arabic_text', 'Arabic text not available'))
     ayah_en = ayah.get('ayah_en', ayah.get('english_translation', 'Translation not available'))
@@ -81,11 +82,20 @@ def format_ayah_reference(ayah):
     
     reference_text = ", ".join(ref_parts) if ref_parts else "Reference information not available"
     
-    return (
-        f"**Arabic Reference from the Quran:**\n{ayah_ar}\n\n"
-        f"**Translation and Explanation:**\n{ayah_en}\n\n"
-        f"{reference_text}"
-    )
+    # Create a formatted reference with styled Arabic text
+    return f"""
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+        <div style="text-align: right; font-size: 28px; font-family: 'Traditional Arabic', 'Scheherazade', serif; line-height: 1.7; margin-bottom: 15px; color: #000;">
+            {ayah_ar}
+        </div>
+        <div style="font-size: 16px; margin-bottom: 15px; font-style: italic; color: #444;">
+            {ayah_en}
+        </div>
+        <div style="font-size: 14px; color: #666;">
+            {reference_text}
+        </div>
+    </div>
+    """
 
 # Define tool schemas using Pydantic models
 class SurahNameQuery(BaseModel):
@@ -153,17 +163,15 @@ def get_surah_by_name(surah_name: str) -> str:
     surah_actual_name = surah_info.get('surah_name_en', surah_name)
     verse_count = len(results)
     
-    # Return summary and first few verses
-    response = f"Found {verse_count} verses in Surah {surah_actual_name}.\n\n"
+    # Return summary and verses with enhanced formatting
+    response = f"<h3>Found {verse_count} verses in Surah {surah_actual_name}</h3>"
     
     # Add the first 5 verses or all if less than 5
-    for i, (_, ayah) in enumerate(results.head(5).iterrows()):
-        response += f"Verse {ayah.get('ayah_no_surah', i+1)}:\n"
-        response += f"Arabic: {ayah.get('ayah_ar', 'Not available')}\n"
-        response += f"Translation: {ayah.get('ayah_en', 'Not available')}\n\n"
+    for i, (_, ayah) in enumerate(results.head(min(10, len(results))).iterrows()):
+        response += format_ayah_reference(ayah)
     
-    if verse_count > 5:
-        response += f"... and {verse_count - 5} more verses."
+    if verse_count > 10:
+        response += f"<p><em>... and {verse_count - 10} more verses.</em></p>"
     
     return response
 
@@ -189,17 +197,15 @@ def get_surah_by_number(surah_number: int) -> str:
     surah_name = results.iloc[0].get('surah_name_en', f"Surah {surah_number}")
     verse_count = len(results)
     
-    # Return summary and first few verses
-    response = f"Found {verse_count} verses in Surah {surah_name} (#{surah_number}).\n\n"
+    # Return summary and verses with enhanced formatting
+    response = f"<h3>Found {verse_count} verses in Surah {surah_name} (#{surah_number})</h3>"
     
-    # Add the first 5 verses or all if less than 5
-    for i, (_, ayah) in enumerate(results.head(5).iterrows()):
-        response += f"Verse {ayah.get('ayah_no_surah', i+1)}:\n"
-        response += f"Arabic: {ayah.get('ayah_ar', 'Not available')}\n"
-        response += f"Translation: {ayah.get('ayah_en', 'Not available')}\n\n"
+    # Add the first 10 verses or all if less than 10
+    for i, (_, ayah) in enumerate(results.head(min(10, len(results))).iterrows()):
+        response += format_ayah_reference(ayah)
     
-    if verse_count > 5:
-        response += f"... and {verse_count - 5} more verses."
+    if verse_count > 10:
+        response += f"<p><em>... and {verse_count - 10} more verses.</em></p>"
     
     return response
 
@@ -253,9 +259,8 @@ def get_specific_ayah(surah: str, ayah_number: int) -> str:
     ayah = results.iloc[0]
     surah_name = ayah.get('surah_name_en', surah)
     
-    response = f"Verse {ayah_number} from Surah {surah_name}:\n\n"
-    response += f"Arabic: {ayah.get('ayah_ar', 'Not available')}\n\n"
-    response += f"Translation: {ayah.get('ayah_en', 'Not available')}"
+    response = f"<h3>Verse {ayah_number} from Surah {surah_name}:</h3>"
+    response += format_ayah_reference(ayah)
     
     return response
 
@@ -392,14 +397,11 @@ def search_semantically(query: str) -> str:
     if retrieved_ayahs.empty:
         return "No semantically relevant verses found for your query."
     
-    response = f"Found 5 verses semantically related to: '{query}'\n\n"
+    response = f"<h3>Found 5 verses semantically related to: '{query}'</h3>"
     
-    # Add the retrieved verses
+    # Add the retrieved verses with enhanced formatting
     for i, (_, ayah) in enumerate(retrieved_ayahs.iterrows(), 1):
-        surah_name = ayah.get('surah_name_en', 'Unknown Surah')
-        verse_num = ayah.get('ayah_no_surah', 'Unknown Verse')
-        response += f"{i}. From Surah {surah_name}, Verse {verse_num}:\n"
-        response += f"Translation: {ayah.get('ayah_en', 'Not available')}\n\n"
+        response += format_ayah_reference(ayah)
     
     return response
 
@@ -444,7 +446,7 @@ def setup_agent():
     
     # Create the LLM with API key from secrets
     llm = ChatOpenAI(
-        model="gpt-4-turbo",
+        model="gpt-4o",
         temperature=0,
         api_key=get_openai_api_key()
     )
@@ -469,7 +471,9 @@ Always think carefully about which tool is most appropriate for the user's query
 
 If you're unsure about the exact spelling of a surah name, use list_available_surahs to see the correct names.
 
-Respond in a respectful, informative manner appropriate for discussing religious texts."""),
+Respond in a respectful, informative manner appropriate for discussing religious texts.
+         
+When responding about a particular surah, and only a few verses are in the response, make sure the user know that it is an excerpt from the surah."""),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad"),
@@ -495,7 +499,11 @@ if "messages" not in st.session_state:
 # Display previous messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        if message["role"] == "assistant" and "<div" in message["content"]:
+            # If the message contains HTML (from formatted ayahs)
+            st.markdown(message["content"], unsafe_allow_html=True)
+        else:
+            st.markdown(message["content"])
 
 # Initialize the agent (only once)
 if "agent" not in st.session_state:
@@ -523,8 +531,13 @@ if user_query:
                 response = st.session_state.agent.invoke({"input": user_query})
                 answer = response["output"]
             
-            # Update the placeholder with the response
-            message_placeholder.markdown(answer)
+            # Check if the answer contains HTML for formatted verses
+            if "<div" in answer:
+                # Update the placeholder with the response
+                message_placeholder.markdown(answer, unsafe_allow_html=True)
+            else:
+                # Regular markdown for non-HTML content
+                message_placeholder.markdown(answer)
             
             # Add assistant message to chat history
             st.session_state.messages.append({"role": "assistant", "content": answer})
