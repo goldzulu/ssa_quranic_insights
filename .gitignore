@@ -21,7 +21,7 @@ build/
 *.npz
 
 # Dataset (can be downloaded automatically)
-The_Quran_Dataset.csv
+./The_Quran_Dataset.csv
 
 # VS Code
 .vscode/
