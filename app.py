@@ -42,7 +42,7 @@ def load_quran_dataset():
         df = pd.read_csv(dataset_path)
     except FileNotFoundError:
         # If local file not found, download from GitHub
-        dataset_url = "https://raw.githubusercontent.com/reemamemon/Quranic_Insights/main/The_Quran_Dataset.csv"
+        dataset_url = "https://raw.githubusercontent.com/goldzulu/ssa_quranic_insights/main/dataset/The_Quran_Dataset.csv"
         response = requests.get(dataset_url)
         response.raise_for_status()
         df = pd.read_csv(StringIO(response.text))
@@ -56,42 +56,47 @@ def load_quran_dataset():
 
 # Format the ayah reference for display
 def format_ayah_reference(ayah):
-    """Format an ayah with enhanced styling for Arabic text"""
+    """Format an ayah with enhanced styling for Arabic text and complete reference information"""
     # Safely access DataFrame columns with fallbacks for missing columns
     ayah_ar = ayah.get('ayah_ar', ayah.get('arabic_text', 'Arabic text not available'))
     ayah_en = ayah.get('ayah_en', ayah.get('english_translation', 'Translation not available'))
     
-    # Build reference string with only available columns
-    ref_parts = []
+    # Get surah information
+    surah_name_en = ayah.get('surah_name_en', 'Unknown')
+    surah_name_roman = ayah.get('surah_name_roman', '')
+    surah_no = ayah.get('surah_no', 'Unknown')
     
-    # Add Surah information
-    if 'surah_name_en' in ayah:
-        ref_parts.append(f"Surah: {ayah['surah_name_en']}")
-    elif 'surah_name_roman' in ayah:
-        ref_parts.append(f"Surah: {ayah['surah_name_roman']}")
+    # Format surah name with both transliteration and English translation
+    if surah_name_roman and surah_name_en:
+        surah_display = f"{surah_name_roman} ({surah_name_en})"
+    elif surah_name_roman:
+        surah_display = surah_name_roman
+    elif surah_name_en:
+        surah_display = surah_name_en
+    else:
+        surah_display = f"Surah {surah_no}"
     
-    # Add Ayah number information
-    if 'ayah_no_surah' in ayah:
-        ref_parts.append(f"Verse: {ayah['ayah_no_surah']}")
-    elif 'ayah_no_quran' in ayah:
-        ref_parts.append(f"Quran verse: {ayah['ayah_no_quran']}")
+    # Get ayah numbers
+    ayah_no_surah = ayah.get('ayah_no_surah', 'Unknown')
+    ayah_no_quran = ayah.get('ayah_no_quran', 'Unknown')
     
     # Add Juz information
-    if 'juz_no' in ayah:
-        ref_parts.append(f"Juz: {ayah['juz_no']}")
+    juz_no = ayah.get('juz_no', '')
+    juz_info = f", Juz: {juz_no}" if juz_no else ""
     
-    reference_text = ", ".join(ref_parts) if ref_parts else "Reference information not available"
+    # Complete reference information
+    reference_text = f"Surah: {surah_display} ({surah_no}), Verse: {ayah_no_surah}{juz_info}"
     
     # Create a formatted reference with styled Arabic text
     return f"""
-    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-        <div style="text-align: right; font-size: 28px; font-family: 'Traditional Arabic', 'Scheherazade', serif; line-height: 1.7; margin-bottom: 15px; color: #000;">
+    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e0e0e0; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+        <div style="text-align: right; font-size: 36px; font-family: 'Traditional Arabic', 'Scheherazade', 'Amiri', serif; line-height: 1.8; margin-bottom: 20px; color: #000; direction: rtl; padding: 15px; background-color: #fcfcfc; border-radius: 8px;">
             {ayah_ar}
         </div>
-        <div style="font-size: 16px; margin-bottom: 15px; font-style: italic; color: #444;">
+        <div style="font-size: 16px; margin-bottom: 15px; font-style: italic; color: #444; line-height: 1.5;">
             {ayah_en}
         </div>
-        <div style="font-size: 14px; color: #666;">
+        <div style="font-size: 14px; color: #666; border-top: 1px solid #e0e0e0; padding-top: 12px; margin-top: 5px;">
             {reference_text}
         </div>
     </div>
@@ -133,25 +138,29 @@ def get_surah_by_name(surah_name: str) -> str:
         clean_name = surah_name_lower
     
     # Try different column names and matching strategies
+    found_match = False
     for col in ['surah_name_en', 'surah_name_roman']:
         if col in df.columns:
             # Exact match first
             mask = df[col].str.lower() == surah_name_lower
             if mask.any():
+                found_match = True
                 break
                 
             # Try without 'al-' prefix
             mask = df[col].str.lower() == clean_name
             if mask.any():
+                found_match = True
                 break
                 
             # Try with contains
             mask = df[col].str.lower().str.contains(clean_name)
             if mask.any():
+                found_match = True
                 break
     
     # If no match found
-    if not mask.any():
+    if not found_match or not mask.any():
         return f"Could not find any surah matching '{surah_name}'. Please check the spelling or try a different name."
     
     # Get the matched verses
@@ -159,14 +168,28 @@ def get_surah_by_name(surah_name: str) -> str:
     if results.empty:
         return f"No verses found for surah '{surah_name}'."
     
+    # Get surah information
     surah_info = results.iloc[0]
-    surah_actual_name = surah_info.get('surah_name_en', surah_name)
+    surah_no = surah_info.get('surah_no', 'Unknown')
+    surah_name_en = surah_info.get('surah_name_en', '')
+    surah_name_roman = surah_info.get('surah_name_roman', '')
+    
+    # Format surah name with both transliteration and English translation
+    if surah_name_roman and surah_name_en:
+        surah_display = f"{surah_name_roman} ({surah_name_en})"
+    elif surah_name_roman:
+        surah_display = surah_name_roman
+    elif surah_name_en:
+        surah_display = surah_name_en
+    else:
+        surah_display = f"Surah {surah_no}"
+    
     verse_count = len(results)
     
     # Return summary and verses with enhanced formatting
-    response = f"<h3>Found {verse_count} verses in Surah {surah_actual_name}</h3>"
+    response = f"<h3>Found {verse_count} verses in Surah {surah_display} (#{surah_no})</h3>"
     
-    # Add the first 5 verses or all if less than 5
+    # Add the first 10 verses or all if less than 10
     for i, (_, ayah) in enumerate(results.head(min(10, len(results))).iterrows()):
         response += format_ayah_reference(ayah)
     
@@ -194,11 +217,25 @@ def get_surah_by_number(surah_number: int) -> str:
     if results.empty:
         return f"No verses found for surah number {surah_number}."
     
-    surah_name = results.iloc[0].get('surah_name_en', f"Surah {surah_number}")
+    # Get surah information
+    surah_info = results.iloc[0]
+    surah_name_en = surah_info.get('surah_name_en', '')
+    surah_name_roman = surah_info.get('surah_name_roman', '')
+    
+    # Format surah name with both transliteration and English translation
+    if surah_name_roman and surah_name_en:
+        surah_display = f"{surah_name_roman} ({surah_name_en})"
+    elif surah_name_roman:
+        surah_display = surah_name_roman
+    elif surah_name_en:
+        surah_display = surah_name_en
+    else:
+        surah_display = f"Surah {surah_number}"
+    
     verse_count = len(results)
     
     # Return summary and verses with enhanced formatting
-    response = f"<h3>Found {verse_count} verses in Surah {surah_name} (#{surah_number})</h3>"
+    response = f"<h3>Found {verse_count} verses in Surah {surah_display} (#{surah_number})</h3>"
     
     # Add the first 10 verses or all if less than 10
     for i, (_, ayah) in enumerate(results.head(min(10, len(results))).iterrows()):
@@ -234,13 +271,15 @@ def get_specific_ayah(surah: str, ayah_number: int) -> str:
             clean_name = surah_name_lower
         
         # Try different columns for surah name
+        found_match = False
         for col in ['surah_name_en', 'surah_name_roman']:
             if col in df.columns:
                 surah_filter = df[col].str.lower().str.contains(clean_name)
                 if surah_filter.any():
+                    found_match = True
                     break
         
-        if not surah_filter.any():
+        if not found_match or not surah_filter.any():
             return f"Could not find any surah matching '{surah}'. Please check the spelling or try using the surah number."
     
     # Filter by ayah number
@@ -257,9 +296,23 @@ def get_specific_ayah(surah: str, ayah_number: int) -> str:
     
     # There should be exactly one match
     ayah = results.iloc[0]
-    surah_name = ayah.get('surah_name_en', surah)
     
-    response = f"<h3>Verse {ayah_number} from Surah {surah_name}:</h3>"
+    # Get surah information
+    surah_no = ayah.get('surah_no', 'Unknown')
+    surah_name_en = ayah.get('surah_name_en', '')
+    surah_name_roman = ayah.get('surah_name_roman', '')
+    
+    # Format surah name with both transliteration and English translation
+    if surah_name_roman and surah_name_en:
+        surah_display = f"{surah_name_roman} ({surah_name_en})"
+    elif surah_name_roman:
+        surah_display = surah_name_roman
+    elif surah_name_en:
+        surah_display = surah_name_en
+    else:
+        surah_display = f"Surah {surah_no}"
+    
+    response = f"<h3>Verse {ayah_number} from Surah {surah_display} (#{surah_no})</h3>"
     response += format_ayah_reference(ayah)
     
     return response
@@ -297,33 +350,32 @@ def get_juz_range(start_juz: int, end_juz: Optional[int] = None) -> str:
     verse_count = len(results)
     juz_range_text = f"Juz {start_juz}" + (f" to {end_juz}" if end_juz != start_juz else "")
     
-    # Return summary and sample verses (first 5)
-    response = f"Found {verse_count} verses in {juz_range_text}.\n\n"
+    # Return summary and sample verses with enhanced formatting
+    response = f"<h3>Found {verse_count} verses in {juz_range_text}</h3>"
     
     # Group by surah and get counts
-    surah_counts = results.groupby('surah_name_en').size() if 'surah_name_en' in results.columns else results.groupby('surah_no').size()
+    if 'surah_name_en' in results.columns:
+        surah_counts = results.groupby(['surah_no', 'surah_name_en']).size()
+        response += "<div style='margin-bottom: 20px;'><h4>Verses by Surah:</h4><ul>"
+        for (surah_no, surah_name), count in surah_counts.items():
+            response += f"<li><strong>Surah {surah_name} ({surah_no})</strong>: {count} verses</li>"
+        response += "</ul></div>"
     
-    response += "Verses by Surah:\n"
-    for surah, count in surah_counts.items():
-        response += f"- {surah}: {count} verses\n"
+    response += "<h4>Sample verses:</h4>"
     
-    response += "\nSample verses:\n"
-    # Add sample verses (first verse from first 3 surahs)
-    shown_surahs = 0
-    prev_surah = None
+    # Show one verse from each of the first 3 surahs
+    shown_surahs = set()
+    sample_verses = []
     
     for _, ayah in results.iterrows():
-        current_surah = ayah.get('surah_name_en', ayah.get('surah_no', 'Unknown'))
-        
-        if current_surah != prev_surah and shown_surahs < 3:
-            response += f"\nFrom Surah {current_surah}, Verse {ayah.get('ayah_no_surah', 'Unknown')}:\n"
-            response += f"Translation: {ayah.get('ayah_en', 'Not available')}\n"
-            
-            prev_surah = current_surah
-            shown_surahs += 1
-            
-        if shown_surahs >= 3:
-            break
+        surah_no = ayah.get('surah_no')
+        if surah_no not in shown_surahs and len(shown_surahs) < 3:
+            shown_surahs.add(surah_no)
+            sample_verses.append(ayah)
+    
+    # Display the sample verses with enhanced formatting
+    for ayah in sample_verses:
+        response += format_ayah_reference(ayah)
     
     return response
 
@@ -414,7 +466,9 @@ def list_available_surahs() -> str:
     
     # Find unique surahs
     if 'surah_name_en' in df.columns and 'surah_no' in df.columns:
-        unique_surahs = df[['surah_no', 'surah_name_en']].drop_duplicates().sort_values('surah_no')
+        columns_to_get = ['surah_no', 'surah_name_en', 'surah_name_ar', 'surah_name_roman']
+        available_columns = [col for col in columns_to_get if col in df.columns]
+        unique_surahs = df[available_columns].drop_duplicates().sort_values('surah_no')
         surah_list = unique_surahs.values.tolist()
     elif 'surah_no' in df.columns:
         unique_surahs = df[['surah_no']].drop_duplicates().sort_values('surah_no')
@@ -422,14 +476,36 @@ def list_available_surahs() -> str:
     else:
         return "Could not find surah information in the dataset."
     
-    response = "List of Surahs in the Quran:\n\n"
+    response = "<h3>List of Surahs in the Quran</h3>"
+    response += "<div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px;'>"
     
     for surah in surah_list:
         if len(surah) > 1:
-            response += f"{surah[0]}. {surah[1]}\n"
+            surah_no = surah[0]
+            surah_name_en = surah[1] if len(surah) > 1 else ""
+            surah_name_ar = surah[2] if len(surah) > 2 else ""
+            surah_name_roman = surah[3] if len(surah) > 3 else ""
+            
+            # Format surah name with both transliteration and English translation
+            if surah_name_roman and surah_name_en:
+                surah_display = f"{surah_name_roman} ({surah_name_en})"
+            elif surah_name_roman:
+                surah_display = surah_name_roman
+            elif surah_name_en:
+                surah_display = surah_name_en
+            else:
+                surah_display = f"Surah {surah_no}"
+            
+            response += f"""
+            <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #e0e0e0;'>
+                <div style='font-weight: bold;'>{surah_no}. {surah_display}</div>
+                <div style='font-size: 18px; text-align: right; direction: rtl;'>{surah_name_ar}</div>
+            </div>
+            """
         else:
-            response += f"Surah #{surah[0]}\n"
+            response += f"<div>Surah #{surah[0]}</div>"
     
+    response += "</div>"
     return response
 
 # Set up the LangChain agent
@@ -469,11 +545,19 @@ When a user asks general questions about topics in the Quran, use the semantic s
 
 Always think carefully about which tool is most appropriate for the user's query. Be thorough and try to provide the most relevant Quranic verses.
 
+IMPORTANT: For every ayah (verse) displayed, always ensure that:
+1. The original Arabic text is shown
+2. The English translation is provided
+3. The complete reference is included with:
+   - Surah name in both transliteration and English translation (e.g., "Al-Fatiha (The Opener)")
+   - Surah number
+   - Ayah number
+
 If you're unsure about the exact spelling of a surah name, use list_available_surahs to see the correct names.
 
 Respond in a respectful, informative manner appropriate for discussing religious texts.
          
-When responding about a particular surah, and only a few verses are in the response, make sure the user know that it is an excerpt from the surah."""),
+When responding about a particular surah, and only a few verses are in the response, make sure the user knows that it is an excerpt from the surah."""),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad"),
